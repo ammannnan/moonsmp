@@ -11,10 +11,11 @@
         body {
             font-family: 'Outfit', sans-serif;
             background-color: #020617;
-            overflow-x: hidden;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            overflow-y: auto;   /* Allow vertical scroll */
         }
         
-        h1, .font-display {
+        h1, h2, h3, .font-display {
             font-family: 'Space Grotesk', sans-serif;
         }
 
@@ -25,7 +26,7 @@
             width: 100%;
             height: 100%;
             z-index: 0;
-            pointer-events: none; /* Let clicks pass through, but we track mouse via window */
+            pointer-events: none;
         }
 
         .glass-panel {
@@ -33,19 +34,109 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .moon-glow {
             box-shadow: 0 0 50px rgba(124, 58, 237, 0.2);
         }
 
+        /* Animations */
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+        .animate-float { animation: float 6s ease-in-out infinite; }
 
-        .animate-float {
-            animation: float 6s ease-in-out infinite;
+        .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Navigation Transitions */
+        #main-nav {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+        }
+        .nav-hidden {
+            transform: translateY(-150%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Slider Bar Logic */
+        .slider-container {
+            position: relative;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            padding: 4px;
+            display: inline-flex;
+        }
+        .slider-bg {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            height: calc(100% - 8px);
+            width: calc(50% - 4px);
+            background: linear-gradient(to right, #6366f1, #a855f7);
+            border-radius: 9999px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+        .nav-btn {
+            position: relative;
+            z-index: 2;
+            width: 100px;
+            padding: 8px 0;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .nav-btn.active { color: white; }
+
+        /* Role Badges */
+        .badge {
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 700;
+        }
+        .role-owner { background: rgba(220, 38, 38, 0.2); color: #fca5a5; border: 1px solid rgba(220, 38, 38, 0.4); }
+        .role-founder { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4); }
+        .role-manager { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .role-dev { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .role-admin { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+        /* Flip Card Utilities */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .group:hover .group-hover\:rotate-y-180 { transform: rotateY(180deg); }
+
+        /* View Toggle Utilities */
+        .view-section {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            position: absolute; /* Stack them */
+            width: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+        .view-section.active-view {
+            position: relative; /* Let it flow */
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
         }
     </style>
 </head>
@@ -54,73 +145,321 @@
     <!-- Interactive Background -->
     <canvas id="starCanvas"></canvas>
     
-    <!-- Decorative Moon Gradient (Fixed behind content) -->
+    <!-- Decorative Moon Gradient (Fixed) -->
     <div class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/30 blur-[120px] pointer-events-none z-0"></div>
     <div class="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/20 blur-[120px] pointer-events-none z-0"></div>
 
-    <!-- Main Content -->
-    <main class="relative z-10 flex-grow flex items-center justify-center p-6">
-        <div class="w-full max-w-lg glass-panel rounded-3xl p-8 sm:p-12 text-center animate-fade-in-up moon-glow transition-transform hover:scale-[1.01] duration-500">
-            
-            <!-- Logo / Icon -->
-            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-indigo-500/40 animate-float">
-                <i class="ph-fill ph-moon-stars text-5xl text-white"></i>
-            </div>
+    <!-- Navigation Slider Bar (Hidden by default) -->
+    <nav id="main-nav" class="fixed top-0 left-0 w-full z-50 flex justify-center py-6 nav-hidden">
+        <div class="slider-container pointer-events-auto shadow-2xl shadow-indigo-500/20">
+            <div id="sliderBg" class="slider-bg" style="transform: translateX(100%);"></div>
+            <div class="nav-btn" onclick="switchTab('home')">Home</div>
+            <div class="nav-btn active" onclick="switchTab('team')">Team</div>
+        </div>
+    </nav>
 
-            <!-- Title -->
-            <h1 class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-indigo-200 mb-4 tracking-tight">
-                Moon SMP
-            </h1>
-            
-            <p class="text-indigo-200/80 text-lg mb-10 font-light leading-relaxed">
-                Embark on a celestial journey. Survival multiplayer like never before.
-            </p>
+    <!-- Main Content Wrapper -->
+    <main class="relative z-10 flex-grow w-full pt-24 pb-12 px-6">
+        
+        <!-- HOME VIEW -->
+        <section id="home-view" class="view-section active-view flex flex-col items-center justify-center min-h-[70vh]">
+            <div class="w-full max-w-lg glass-panel rounded-3xl p-8 sm:p-12 text-center moon-glow transition-transform hover:scale-[1.01] duration-500">
+                
+                <!-- Logo -->
+                <div class="mx-auto w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-indigo-500/40 animate-float">
+                    <i class="ph-fill ph-moon-stars text-5xl text-white"></i>
+                </div>
 
-            <!-- IP Address Copy Section -->
-            <div class="space-y-4 mb-8">
-                <div class="relative group cursor-pointer" onclick="copyIp()">
-                    <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl blur opacity-30 group-hover:opacity-75 transition duration-500"></div>
-                    <div class="relative flex items-center justify-between bg-slate-900/90 border border-indigo-500/30 rounded-xl p-4 transition-all duration-200 group-hover:bg-slate-900">
-                        <div class="flex items-center gap-3">
-                            <i class="ph-bold ph-globe text-indigo-400 text-xl"></i>
-                            <div class="text-left">
-                                <p class="text-xs text-indigo-300 font-medium uppercase tracking-wider">Server IP</p>
-                                <p class="text-xl font-bold font-display tracking-wide text-white">play.moonsmp.fun</p>
+                <!-- Title -->
+                <h1 class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-indigo-200 mb-4 tracking-tight">
+                    Moon SMP
+                </h1>
+                
+                <p class="text-indigo-200/80 text-lg mb-10 font-light leading-relaxed">
+                    Embark on a celestial journey. Survival multiplayer like never before.
+                </p>
+
+                <!-- IP Address -->
+                <div class="space-y-4 mb-8">
+                    <div class="relative group cursor-pointer" onclick="copyIp()">
+                        <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl blur opacity-30 group-hover:opacity-75 transition duration-500"></div>
+                        <div class="relative flex items-center justify-between bg-slate-900/90 border border-indigo-500/30 rounded-xl p-4 transition-all duration-200 group-hover:bg-slate-900">
+                            <div class="flex items-center gap-3">
+                                <i class="ph-bold ph-globe text-indigo-400 text-xl"></i>
+                                <div class="text-left">
+                                    <p class="text-xs text-indigo-300 font-medium uppercase tracking-wider">Server IP</p>
+                                    <p class="text-xl font-bold font-display tracking-wide text-white">185.207.164.228:25565</p>
+                                </div>
+                            </div>
+                            <div class="bg-indigo-500/20 p-2 rounded-lg group-hover:bg-indigo-500/40 transition-colors">
+                                <i id="copyIcon" class="ph-bold ph-copy text-indigo-300 group-hover:text-white transition-colors"></i>
                             </div>
                         </div>
-                        <div class="bg-indigo-500/20 p-2 rounded-lg group-hover:bg-indigo-500/40 transition-colors">
-                            <i id="copyIcon" class="ph-bold ph-copy text-indigo-300 group-hover:text-white transition-colors"></i>
+                        <div id="copyFeedback" class="absolute top-[-40px] left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white text-sm py-1 px-3 rounded shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none">
+                            Copied!
                         </div>
                     </div>
-                    <!-- Tooltip feedback -->
-                    <div id="copyFeedback" class="absolute top-[-40px] left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white text-sm py-1 px-3 rounded shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none">
-                        Copied!
-                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-1 gap-4">
+                    <a href="https://discord.gg/moonsmp" target="_blank" 
+                       class="flex items-center justify-center gap-3 w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl font-bold transition-all duration-300 shadow-lg shadow-indigo-900/20 hover:shadow-indigo-900/40 hover:-translate-y-1">
+                        <i class="ph-fill ph-discord-logo text-2xl"></i>
+                        Join Discord Community
+                    </a>
+                    
+                    <!-- New Meet the Team Button -->
+                    <button onclick="switchTab('team')" 
+                            class="flex items-center justify-center gap-3 w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 group">
+                        <i class="ph-bold ph-users text-2xl text-indigo-300 group-hover:text-white transition-colors"></i>
+                        Meet the Team
+                    </button>
+                </div>
+
+                <!-- Status -->
+                <div class="mt-8 flex items-center justify-center gap-2">
+                    <span class="relative flex h-3 w-3">
+                      <span id="pingAnimation" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 hidden"></span>
+                      <span id="statusDot" class="relative inline-flex rounded-full h-3 w-3 bg-gray-500 transition-colors duration-300"></span>
+                    </span>
+                    <span id="statusText" class="text-sm text-gray-400 font-medium">Connecting...</span>
                 </div>
             </div>
+        </section>
 
-            <!-- Action Buttons -->
-            <div class="grid grid-cols-1 gap-4">
-                <a href="https://discord.gg/moonsmp" target="_blank" 
-                   class="flex items-center justify-center gap-3 w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl font-bold transition-all duration-300 shadow-lg shadow-indigo-900/20 hover:shadow-indigo-900/40 hover:-translate-y-1">
-                    <i class="ph-fill ph-discord-logo text-2xl"></i>
-                    Join Discord Community
-                </a>
+        <!-- TEAM VIEW -->
+        <section id="team-view" class="view-section max-w-7xl mx-auto">
+            
+            <div class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-indigo-200 mb-4">
+                    Behind the Scenes
+                </h1>
+                <p class="text-indigo-200/60 text-lg max-w-2xl mx-auto">
+                    Meet the passionate team working day and night to craft the ultimate celestial experience.
+                </p>
             </div>
 
-            <!-- Footer Status -->
-            <div class="mt-8 flex items-center justify-center gap-2">
-                <span class="relative flex h-3 w-3">
-                  <span id="pingAnimation" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 hidden"></span>
-                  <span id="statusDot" class="relative inline-flex rounded-full h-3 w-3 bg-gray-500 transition-colors duration-300"></span>
-                </span>
-                <span id="statusText" class="text-sm text-gray-400 font-medium">Connecting...</span>
-            </div>
+            <!-- Team Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 
-        </div>
+                <!-- Vihaan -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-red-500 to-orange-600 rounded-full opacity-70 blur"></div>
+                                <img src="vihaan.png" onerror="this.src='https://ui-avatars.com/api/?name=Vihaan&background=7f1d1d&color=fca5a5&size=128'" alt="Vihaan" class="relative w-24 h-24 rounded-full object-cover border-2 border-red-500/50">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Vihaan</h3>
+                            <span class="badge role-owner">Owner</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-red-500/30">
+                            <h3 class="text-lg font-bold text-red-300 mb-2">The Visionary</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Leading the charge and overseeing the entire Moon SMP universe.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lumeon -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full opacity-70 blur"></div>
+                                <img src="lumeon.png" onerror="this.src='https://ui-avatars.com/api/?name=Lumeon&background=713f12&color=fde047&size=128'" alt="Lumeon" class="relative w-24 h-24 rounded-full object-cover border-2 border-yellow-500/50">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Lumeon</h3>
+                            <span class="badge role-founder">Founder</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-yellow-500/30">
+                            <h3 class="text-lg font-bold text-yellow-300 mb-2">The Creator</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Laid the original foundation of the server and guides its philosophy.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bokile -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full opacity-60 blur"></div>
+                                <img src="bokile.png" onerror="this.src='https://ui-avatars.com/api/?name=Bokile&background=1e3a8a&color=93c5fd&size=128'" alt="Bokile" class="relative w-24 h-24 rounded-full object-cover border-2 border-blue-400/50">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Bokile</h3>
+                            <span class="badge role-manager">Manager</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-blue-500/30">
+                            <h3 class="text-lg font-bold text-blue-300 mb-2">Operations</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Ensures the community runs smoothly and handles day-to-day operations.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ventine -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full opacity-60 blur"></div>
+                                <img src="ventine.png" onerror="this.src='https://ui-avatars.com/api/?name=Ventine&background=1e3a8a&color=93c5fd&size=128'" alt="Ventine" class="relative w-24 h-24 rounded-full object-cover border-2 border-blue-400/50">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Ventine</h3>
+                            <span class="badge role-manager">Manager</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-blue-500/30">
+                            <h3 class="text-lg font-bold text-blue-300 mb-2">Coordinator</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Manages staff and community events, keeping the environment engaging.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nastic -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-green-600 rounded-full opacity-60 blur"></div>
+                                <img src="nastic.png" onerror="this.src='https://ui-avatars.com/api/?name=Nastic&background=064e3b&color=6ee7b7&size=128'" alt="Nastic" class="relative w-24 h-24 rounded-full object-cover border-2 border-emerald-500/50">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Nastic</h3>
+                            <span class="badge role-dev">Lead Dev</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-emerald-500/30">
+                            <h3 class="text-lg font-bold text-emerald-300 mb-2">Code Wizard</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Architect of the server's custom plugins and features.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mexico -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full opacity-50 blur"></div>
+                                <img src="mexico.png" onerror="this.src='https://ui-avatars.com/api/?name=Mexico&background=064e3b&color=6ee7b7&size=128'" alt="Mexico" class="relative w-24 h-24 rounded-full object-cover border-2 border-emerald-500/30">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Mexico</h3>
+                            <span class="badge role-dev">Developer</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-emerald-500/30">
+                            <h3 class="text-lg font-bold text-emerald-300 mb-2">Innovator</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Working on new mechanics and optimizing performance.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Freak -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full opacity-50 blur"></div>
+                                <img src="freak.png" onerror="this.src='https://ui-avatars.com/api/?name=Freak&background=064e3b&color=6ee7b7&size=128'" alt="Freak" class="relative w-24 h-24 rounded-full object-cover border-2 border-emerald-500/30">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Freak</h3>
+                            <span class="badge role-dev">Developer</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-emerald-500/30">
+                            <h3 class="text-lg font-bold text-emerald-300 mb-2">Builder</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Contributing complex features and ensuring technical stability.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nehan -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full opacity-50 blur"></div>
+                                <img src="nehan.png" onerror="this.src='https://ui-avatars.com/api/?name=Nehan&background=064e3b&color=6ee7b7&size=128'" alt="Nehan" class="relative w-24 h-24 rounded-full object-cover border-2 border-emerald-500/30">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Nehan</h3>
+                            <span class="badge role-dev">Developer</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-emerald-500/30">
+                            <h3 class="text-lg font-bold text-emerald-300 mb-2">Tech Support</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Focuses on squashing bugs and refining the user experience.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reddino21 -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-red-400 to-pink-500 rounded-full opacity-50 blur"></div>
+                                <img src="reddino21.png" onerror="this.src='https://ui-avatars.com/api/?name=Reddino21&background=7f1d1d&color=f87171&size=128'" alt="Reddino21" class="relative w-24 h-24 rounded-full object-cover border-2 border-red-500/30">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1">Reddino21</h3>
+                            <span class="badge role-admin">Senior Admin</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-red-500/30">
+                            <h3 class="text-lg font-bold text-red-300 mb-2">Guardian</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Oversees administrative tasks and ensures rules are applied fairly.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- XsmrkFdrk -->
+                <div class="group perspective-1000 h-72 cursor-pointer">
+                    <div class="relative w-full h-full transition-all duration-500 transform-style-3d group-hover:rotate-y-180">
+                        <div class="absolute w-full h-full backface-hidden glass-panel p-6 rounded-2xl flex flex-col items-center justify-center">
+                            <div class="relative mb-4">
+                                <div class="absolute -inset-1 bg-gradient-to-br from-red-400 to-pink-500 rounded-full opacity-50 blur"></div>
+                                <img src="xsmrkfdrk.png" onerror="this.src='https://ui-avatars.com/api/?name=XsmrkFdrk&background=7f1d1d&color=f87171&size=128'" alt="XsmrkFdrk" class="relative w-24 h-24 rounded-full object-cover border-2 border-red-500/30">
+                            </div>
+                            <h3 class="text-xl font-bold mb-1 truncate max-w-full">XsmrkFdrk</h3>
+                            <span class="badge role-admin">Admin</span>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 glass-panel p-6 rounded-2xl flex flex-col items-center justify-center bg-indigo-950/80 border border-red-500/30">
+                            <h3 class="text-lg font-bold text-red-300 mb-2">Enforcer</h3>
+                            <p class="text-sm text-center text-gray-300 leading-relaxed">Dedicated to keeping the chat clean and the game fair for all.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
     </main>
 
     <script>
+        // --- Tab Switching Logic ---
+        function switchTab(tabName) {
+            const homeView = document.getElementById('home-view');
+            const teamView = document.getElementById('team-view');
+            const sliderBg = document.getElementById('sliderBg');
+            const buttons = document.querySelectorAll('.nav-btn');
+            const navbar = document.getElementById('main-nav');
+
+            if (tabName === 'home') {
+                homeView.classList.add('active-view');
+                teamView.classList.remove('active-view');
+                // Hide navbar when returning home
+                navbar.classList.add('nav-hidden');
+                
+                // Reset slider state (visually)
+                sliderBg.style.transform = 'translateX(0)';
+                buttons[0].classList.add('active');
+                buttons[1].classList.remove('active');
+            } else {
+                homeView.classList.remove('active-view');
+                teamView.classList.add('active-view');
+                // Show navbar when going to team
+                navbar.classList.remove('nav-hidden');
+
+                // Set slider state
+                sliderBg.style.transform = 'translateX(100%)';
+                buttons[0].classList.remove('active');
+                buttons[1].classList.add('active');
+            }
+        }
+
         // --- Server Status Logic ---
         async function updateServerStatus() {
             const statusText = document.getElementById('statusText');
@@ -128,7 +467,6 @@
             const pingAnimation = document.getElementById('pingAnimation');
 
             try {
-                // Using mcstatus.io API with the real IP
                 const response = await fetch('https://api.mcstatus.io/v2/status/java/185.207.164.228:25565');
                 const data = await response.json();
 
@@ -152,23 +490,18 @@
             }
         }
         
-        // Initial call
         updateServerStatus();
-        // Refresh every 30s
         setInterval(updateServerStatus, 30000);
 
         // --- Clipboard Logic ---
         function copyIp() {
-            const ip = "play.moonsmp.fun";
+            const ip = "185.207.164.228:25565";
             navigator.clipboard.writeText(ip).then(() => {
                 const feedback = document.getElementById('copyFeedback');
                 const icon = document.getElementById('copyIcon');
                 
-                // Show feedback
                 feedback.classList.remove('opacity-0');
                 feedback.style.transform = "translate(-50%, -10px)";
-                
-                // Change icon
                 icon.classList.replace('ph-copy', 'ph-check');
                 icon.classList.add('text-green-400');
 
@@ -189,14 +522,12 @@
         
         let width, height;
         let particles = [];
-        let mouse = { x: -1000, y: -1000 }; // Start off-screen
+        let mouse = { x: -1000, y: -1000 };
 
-        // Configuration
-        const PARTICLE_COUNT = 120;
-        const CONNECT_DISTANCE = 120;
+        const PARTICLE_COUNT = 300;
+        const CONNECT_DISTANCE = 100;
         const MOUSE_RADIUS = 200;
 
-        // Resize
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -206,7 +537,6 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Mouse Tracking
         window.addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
@@ -225,8 +555,6 @@
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-
-                // Screen wrapping
                 if (this.x < 0) this.x = width;
                 else if (this.x > width) this.x = 0;
                 if (this.y < 0) this.y = height;
@@ -241,15 +569,12 @@
             }
         }
 
-        // Initialize
         for(let i = 0; i < PARTICLE_COUNT; i++) {
             particles.push(new Particle());
         }
 
         function animate() {
             ctx.clearRect(0, 0, width, height);
-
-            // Draw connecting lines first (so they are behind stars)
             ctx.lineWidth = 0.5;
             
             for (let i = 0; i < particles.length; i++) {
@@ -257,27 +582,23 @@
                 p1.update();
                 p1.draw();
 
-                // Calculate distance to mouse
                 let dx_mouse = mouse.x - p1.x;
                 let dy_mouse = mouse.y - p1.y;
                 let dist_mouse = Math.sqrt(dx_mouse*dx_mouse + dy_mouse*dy_mouse);
 
-                // React to mouse: Draw line to cursor if close
                 if (dist_mouse < MOUSE_RADIUS) {
-                    ctx.strokeStyle = `rgba(167, 139, 250, ${1 - dist_mouse/MOUSE_RADIUS})`; // Purple-ish connection
+                    ctx.strokeStyle = `rgba(167, 139, 250, ${1 - dist_mouse/MOUSE_RADIUS})`;
                     ctx.beginPath();
                     ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(mouse.x, mouse.y); // Connect star to mouse
+                    ctx.lineTo(mouse.x, mouse.y);
                     ctx.stroke();
 
-                    // Optional: Push particles away slightly
                     if (dist_mouse < 100) {
                         p1.x -= dx_mouse * 0.01;
                         p1.y -= dy_mouse * 0.01;
                     }
                 }
 
-                // Connect to other stars nearby
                 for (let j = i + 1; j < particles.length; j++) {
                     let p2 = particles[j];
                     let dx = p1.x - p2.x;
@@ -285,7 +606,6 @@
                     let dist = Math.sqrt(dx*dx + dy*dy);
 
                     if (dist < CONNECT_DISTANCE) {
-                        // Opacity based on distance
                         ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - dist/CONNECT_DISTANCE) * 0.15})`;
                         ctx.beginPath();
                         ctx.moveTo(p1.x, p1.y);
@@ -294,10 +614,8 @@
                     }
                 }
             }
-
             requestAnimationFrame(animate);
         }
-
         animate();
     </script>
 </body>
